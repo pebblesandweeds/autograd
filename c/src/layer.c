@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "../include/layer.h"
+#include "layer.h"
 
 static void layer_zero_grad(void* self) {
     Layer* l = (Layer*)self;
@@ -11,24 +11,24 @@ static void layer_zero_grad(void* self) {
 static Value** layer_parameters(void* self, int* n_params) {
     Layer* l = (Layer*)self;
     *n_params = 0;
-    
+
     // First count total parameters
     for (int i = 0; i < l->nout; i++) {
-        int neuron_params;
-        l->neurons[i]->parameters(l->neurons[i], &neuron_params);
-        *n_params += neuron_params;
+        int params_count;
+        l->neurons[i]->parameters(l->neurons[i], &params_count);
+        *n_params += params_count;
     }
-    
+
     // Allocate and collect parameters
     Value** params = (Value**)malloc(*n_params * sizeof(Value*));
     int idx = 0;
     for (int i = 0; i < l->nout; i++) {
-        int neuron_params;
-        Value** neuron_params = l->neurons[i]->parameters(l->neurons[i], &neuron_params);
-        for (int j = 0; j < neuron_params; j++) {
-            params[idx++] = neuron_params[j];
+        int params_count;
+        Value** neuron_params_array = l->neurons[i]->parameters(l->neurons[i], &params_count);
+        for (int j = 0; j < params_count; j++) {
+            params[idx++] = neuron_params_array[j];
         }
-        free(neuron_params);
+        free(neuron_params_array);
     }
     return params;
 }
@@ -37,16 +37,16 @@ Layer* Layer_new(int nin, int nout, int nonlin) {
     Layer* l = (Layer*)malloc(sizeof(Layer));
     l->nin = nin;
     l->nout = nout;
-    
+
     // Create neurons
     l->neurons = (Neuron**)malloc(nout * sizeof(Neuron*));
     for (int i = 0; i < nout; i++) {
         l->neurons[i] = Neuron_new(nin, nonlin);
     }
-    
+
     l->zero_grad = layer_zero_grad;
     l->parameters = layer_parameters;
-    
+
     return l;
 }
 

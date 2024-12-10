@@ -1,6 +1,11 @@
 #include <stdlib.h>
 #include <math.h>
-#include "../include/value.h"
+#include "value.h"
+
+// Function prototypes for backward passes
+static void backward_add(Value* self);
+static void backward_mul(Value* self);
+static void backward_relu(Value* self);
 
 Value* Value_new(double data) {
     Value* v = (Value*)malloc(sizeof(Value));
@@ -10,7 +15,7 @@ Value* Value_new(double data) {
     v->prev = NULL;
     v->n_prev = 0;
     v->prev_capacity = 0;
-    v->op = "";
+    v->op = (char*)"";  // Cast string literal to char* to satisfy C++
     return v;
 }
 
@@ -27,46 +32,43 @@ void Value_add_child(Value* v, Value* child) {
     v->prev[v->n_prev++] = child;
 }
 
+static void backward_add(Value* self) {
+    self->prev[0]->grad += self->grad;
+    self->prev[1]->grad += self->grad;
+}
+
 Value* Value_add(Value* a, Value* b) {
     Value* out = Value_new(a->data + b->data);
     Value_add_child(out, a);
     Value_add_child(out, b);
-    out->op = "+";
-    
-    void backward(Value* self) {
-        a->grad += self->grad;
-        b->grad += self->grad;
-    }
-    
-    out->backward = backward;
+    out->op = (char*)"+";
+    out->backward = backward_add;
     return out;
+}
+
+static void backward_mul(Value* self) {
+    self->prev[0]->grad += self->prev[1]->data * self->grad;
+    self->prev[1]->grad += self->prev[0]->data * self->grad;
 }
 
 Value* Value_mul(Value* a, Value* b) {
     Value* out = Value_new(a->data * b->data);
     Value_add_child(out, a);
     Value_add_child(out, b);
-    out->op = "*";
-    
-    void backward(Value* self) {
-        a->grad += b->data * self->grad;
-        b->grad += a->data * self->grad;
-    }
-    
-    out->backward = backward;
+    out->op = (char*)"*";
+    out->backward = backward_mul;
     return out;
+}
+
+static void backward_relu(Value* self) {
+    self->prev[0]->grad += (self->data > 0) * self->grad;
 }
 
 Value* Value_relu(Value* a) {
     Value* out = Value_new(a->data < 0 ? 0 : a->data);
     Value_add_child(out, a);
-    out->op = "ReLU";
-    
-    void backward(Value* self) {
-        a->grad += (out->data > 0) * self->grad;
-    }
-    
-    out->backward = backward;
+    out->op = (char*)"ReLU";
+    out->backward = backward_relu;
     return out;
 }
 
@@ -86,16 +88,16 @@ void Value_backward(Value* v) {
     int topo_idx = 0;
     Value** visited = (Value**)malloc(1000 * sizeof(Value*));
     int visited_size = 0;
-    
+
     build_topo(v, topo, &topo_idx, visited, &visited_size);
     v->grad = 1.0;
-    
+
     for (int i = topo_idx - 1; i >= 0; i--) {
         if (topo[i]->backward) {
             topo[i]->backward(topo[i]);
         }
     }
-    
+
     free(topo);
     free(visited);
 }

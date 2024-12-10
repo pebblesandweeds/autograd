@@ -1,28 +1,21 @@
-#ifndef VALUE_H
-#define VALUE_H
+#ifndef LAYER_H
+#define LAYER_H
 
-typedef struct Value Value;
-typedef void (*BackwardFn)(Value*);
+#include "neuron.h"
 
-struct Value {
-    double data;
-    double grad;
-    BackwardFn backward;
-    Value** prev;
-    int n_prev;
-    int prev_capacity;
-    char* op;
-};
+typedef struct Layer {
+    Neuron** neurons;
+    int nin;        // Inputs to each neuron
+    int nout;       // Number of neurons
+    ZeroGradFn zero_grad;
+    ParametersFn parameters;
+} Layer;
 
 // Constructor/destructor
-Value* Value_new(double data);
-void Value_free(Value* v);
+Layer* Layer_new(int nin, int nout, int nonlin);
+void Layer_free(Layer* l);
 
 // Operations
-void Value_add_child(Value* v, Value* child);
-Value* Value_add(Value* a, Value* b);
-Value* Value_mul(Value* a, Value* b);
-Value* Value_relu(Value* a);
-void Value_backward(Value* v);
+Value** Layer_forward(Layer* l, Value** x);
 
-#endif // VALUE_H
+#endif // LAYER_H
